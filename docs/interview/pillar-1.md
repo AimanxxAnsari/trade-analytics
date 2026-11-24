@@ -28,7 +28,7 @@ skill, but cap the size."
 2. **Why is "fraction of bootstrap means <= 0" not a p-value?** It is not computed under the
    null. You must centre the bootstrap distribution at zero first.
 3. **What does PSR add over a t-test?** It accounts for skew and kurtosis; negative skew and fat
-   tails reduce confidence. MinTRL rose from about 11 (normal) to 44 trades here.
+   tails reduce confidence. MinTRL rose from about 12 (normal) to 44 trades here.
 4. **Why did profit factor drop from 9.8 to 2.2 in USD?** The big losses were on big positions.
    Per unit of size the trader is excellent; the sizing hurt.
 5. **Why not bet full Kelly?** It is driven by the worst observed loss and by estimated

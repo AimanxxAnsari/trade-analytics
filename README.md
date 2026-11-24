@@ -46,7 +46,7 @@ Write-up: [`docs/projects/pillar-1/PROJECT.md`](docs/projects/pillar-1/PROJECT.m
 | `report` | End-to-end report with figures |
 
 Every statistical method is tested against a known answer first (hand calculations, closed forms,
-or synthetic data with a known true value). 51 tests.
+or synthetic data with a known true value). 52 tests.
 
 ## Data
 
@@ -95,6 +95,12 @@ To rebuild the testing journal from the raw Kaggle file:
 ```bash
 uv run python scripts/build_testing_journal.py path/to/historical_data.csv
 ```
+
+## Notebook
+
+[`notebooks/pillar1_walkthrough.ipynb`](notebooks/pillar1_walkthrough.ipynb): the whole pipeline step by step on the
+testing journal, with the reasoning behind each method and known-answer sanity checks. It is
+executed by the test suite, so it always runs.
 
 ## Documentation
 

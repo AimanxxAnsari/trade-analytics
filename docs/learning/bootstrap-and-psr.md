@@ -48,4 +48,4 @@ more trades to be convincing.
     MinTRL = 1 + (1 - g3*SR + (g4 - 1)/4 * SR^2) * (z_{1-alpha} / (SR - SR*))^2
 
 Testing journal: SR = 0.53, g3 = -1.9, g4 = 35.8 gives MinTRL of about 44 trades. A normal
-distribution with the same SR would need only about 11.
+distribution with the same SR would need only about 12.
