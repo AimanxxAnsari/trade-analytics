@@ -1,0 +1,30 @@
+# --- Private data: NEVER committed (see docs/decisions/ADR-0001) ---
+data/*
+!data/README.md
+*.csv
+*.xlsx
+*.xls
+*.parquet
+reports/private/
+
+# Secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.ipynb_checkpoints/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
