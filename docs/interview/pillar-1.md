@@ -1,28 +1,67 @@
-# Interview pack — trade-analytics
+# Interview pack: trade-analytics
 
-*Grows as the project progresses. Practise answering without notes.*
+*Practise answering without notes. Everything here is backed by code and tests in the repo.*
 
 ## 30-second pitch
-*(Draft once results exist.)* "I took my own record of ~300 trades and asked the question a prop
-firm would: is there real skill, or is it noise? I built the analysis like a research project —
-validated data, bootstrap and Bayesian inference on the edge, multiple-testing control, and Monte
-Carlo risk of ruin — and used the result to choose a position size."
+"I built a pipeline to answer the question a prop firm asks about a trader: is the edge real, and
+how much should they be allowed to risk? I tested it on 422 real crypto perpetual trades that I
+reconstructed from public exchange fills. The edge was statistically clear, with a Probabilistic
+Sharpe Ratio above 0.999, but the record was heavily negatively skewed: a 94% win rate with a few
+large losses that made up 98% of all losses. Full Kelly came out at 6.7x leverage, right next to the
+7.1x level where one repeat of the worst trade wipes out the account. So the conclusion was: real
+skill, but cap the size."
 
-## Likely questions (answers to be written in my own words)
-1. Why measure outcomes in R-multiples rather than currency?
-2. How did you treat breakeven trades, and why does it matter? *(ADR-0003)*
-3. Why does the expectancy identity `E = p·W − q·L` need p and q over all trades?
-4. Why keep the raw data out of the repo, and how do you test without it? *(ADR-0001)*
-5. Why validate the whole table and report every error instead of failing on the first?
-6. Why timezone-aware timestamps?
-7. What is a property-based test and what does yours check?
+## 2-minute walkthrough
+1. **Data:** public Hyperliquid fills (CC0). Rebuilt round trips: scale-ins, partial exits, a
+   position flip split into two trades, and data gaps discarded rather than guessed. Validated by
+   reconciling recomputed P&L against the exchange's figure (median error 4e-7).
+2. **Edge:** iid and stationary bootstrap CIs on mean return, plus the Bayesian bootstrap; PSR and
+   MinTRL because the outcomes are fat-tailed.
+3. **Slices:** instrument by direction, corrected with Holm and BH; partial pooling showed slice
+   differences were noise.
+4. **Sizing:** Kelly with Bayesian-bootstrap uncertainty, and Monte Carlo drawdowns by leverage.
+5. **Finding:** statistically significant, but tail risk dominates the sizing decision.
+
+## Likely questions (with answers in short)
+1. **Why the stationary bootstrap?** Streaks make iid resampling too optimistic; blocks keep
+   short-range dependence. Here the CI widened only slightly, so dependence is mild.
+2. **Why is "fraction of bootstrap means <= 0" not a p-value?** It is not computed under the
+   null. You must centre the bootstrap distribution at zero first.
+3. **What does PSR add over a t-test?** It accounts for skew and kurtosis; negative skew and fat
+   tails reduce confidence. MinTRL rose from about 11 (normal) to 44 trades here.
+4. **Why did profit factor drop from 9.8 to 2.2 in USD?** The big losses were on big positions.
+   Per unit of size the trader is excellent; the sizing hurt.
+5. **Why not bet full Kelly?** It is driven by the worst observed loss and by estimated
+   parameters; out of sample the tail can be worse. Half Kelly keeps about 75% of growth in the textbook quadratic approximation (about 58% on this skewed record) with far
+   smaller drawdowns.
+6. **Holm vs BH?** Holm controls the chance of any false positive (FWER); BH controls the
+   expected share of false positives (FDR) and is less conservative.
+7. **How did you test the statistics?** Known answers: CI coverage near 95% on simulated data,
+   the Kelly closed form f* = p - q/b, hand-computed Holm/BH, and wider block CIs on AR(1) data.
+8. **What is the main weakness?** One account, one bull-market period, selected from a curated
+   dataset; tail risk out of sample.
+9. **How do you rebuild trades from fills?** Track running position per coin; open when flat; flip
+   fills are split; continuity check on Start Position catches gaps.
+10. **Why return on notional, not R?** No planned stops in the data; it's scale-free. USD is shown
+    alongside to expose sizing effects.
 
 ## Must be able to rebuild from scratch
-- [ ] Win rate, payoff ratio, profit factor, expectancy — and the identity between them.
-- [ ] R-multiple calculation from entry, stop and size.
+- [ ] Expectancy identity E = pW - qL (with scratches).
+- [ ] iid bootstrap CI and null-imposed p-value (about 10 lines of NumPy).
+- [ ] Stationary bootstrap index generation.
+- [ ] PSR formula and why skew/kurtosis matter.
+- [ ] Kelly binary derivation f* = p - q/b; numerical Kelly for general outcomes.
+- [ ] Max drawdown of an equity path.
+- [ ] Holm and BH adjustments.
 
 ## Numbers to remember
-*(Pending results.)*
+422 trades; 93.6% win rate; mean +0.83% per trade, CI [0.66%, 1.02%]; skew -1.9, kurtosis 35.8;
+PSR > 0.999; MinTRL about 44; top-5 losses = 97.6% of USD losses; Kelly 6.7x vs 7.1x bound.
 
 ## STAR stories
-*(Pending — e.g. a data-quality issue found by validation.)*
+- **Data validation:** *Situation:* fills, not trades. *Task:* trustworthy round trips.
+  *Action:* reconstruction with continuity checks, then reconciled my P&L against the exchange's.
+  *Result:* matched to 4e-7, and it also proved the exchange P&L excludes fees.
+- **Overconfidence check:** *Situation:* huge statistical significance. *Task:* decide sizing.
+  *Action:* Kelly with parameter uncertainty and wipe-out bound. *Result:* showed that
+  significance and safe leverage are different questions.

@@ -7,6 +7,13 @@ data/*
 *.parquet
 reports/private/
 
+# --- Exception: the public CC0 testing journal (see docs/decisions/ADR-0004) ---
+!data/testing_journal/
+data/testing_journal/*
+!data/testing_journal/testing_journal.csv
+!data/testing_journal/provenance.json
+!data/testing_journal/README.md
+
 # Secrets
 .env
 .env.*

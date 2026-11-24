@@ -1,0 +1,21 @@
+{
+  "source": "Kaggle: 'Historical Trade Data' (pradeepjswl) \u2014 Hyperliquid fills",
+  "license": "CC0 1.0 Universal (public domain)",
+  "source_sha256": "f02bcb03b6a99ba69d37b8d9db1edd998c6092369f676361b360d4a7601ed5a9",
+  "account": "0x4f93fead39b70a1824f981a54d4e55b278e9f760",
+  "instruments": [
+    "BTC",
+    "ETH"
+  ],
+  "period_utc": [
+    "2024-03-13 14:45:00+00:00",
+    "2025-05-01 06:12:00+00:00"
+  ],
+  "diagnostics": {
+    "fills": 7562,
+    "gaps_discarded": 2,
+    "skipped_until_flat": 0,
+    "flips_split": 1,
+    "trades": 422
+  }
+}

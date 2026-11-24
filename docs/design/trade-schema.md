@@ -13,13 +13,13 @@ a particular broker or journal export.
 ## Schema
 | Column | Type | Required | Rule |
 |---|---|---|---|
-| `trade_id` | str | ✅ | unique |
-| `instrument` | str | ✅ | free text, normalised by loader |
-| `direction` | str | ✅ | `long` or `short` |
-| `entry_time`, `exit_time` | datetime, tz-aware UTC | ✅ | exit ≥ entry |
-| `entry_price`, `exit_price` | float | ✅ | > 0 |
-| `size` | float | ✅ | > 0 |
-| `pnl` | float | ✅ | net of fees, account currency, no NaN |
+| `trade_id` | str | yes | unique |
+| `instrument` | str | yes | free text, normalised by loader |
+| `direction` | str | yes | `long` or `short` |
+| `entry_time`, `exit_time` | datetime, tz-aware UTC | yes | exit ≥ entry |
+| `entry_price`, `exit_price` | float | yes | > 0 |
+| `size` | float | yes | > 0 |
+| `pnl` | float | yes | net of fees, account currency, no NaN |
 | `risk_amount` | float | — | > 0; required for R-multiples |
 | `stop_price`, `fees`, `setup` | — | — | optional |
 

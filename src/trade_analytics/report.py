@@ -1,0 +1,235 @@
+"""Run the full Pillar 1 analysis on a canonical trade table and write a report.
+
+Outcome unit (ADR-0005): R-multiples when ``risk_amount`` is available,
+otherwise return on entry notional (pnl / notional).
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+
+from trade_analytics.bayes import (  # noqa: E402
+    bayesian_bootstrap_mean,
+    breakeven_win_rate,
+    partial_pool_win_rates,
+    win_rate_posterior,
+)
+from trade_analytics.bootstrap import bootstrap_mean  # noqa: E402
+from trade_analytics.metrics import summarise  # noqa: E402
+from trade_analytics.monte_carlo import drawdown_risk, max_drawdown  # noqa: E402
+from trade_analytics.multiple_testing import slice_tests  # noqa: E402
+from trade_analytics.sharpe import sharpe_summary  # noqa: E402
+from trade_analytics.sizing import growth_rate, kelly_with_uncertainty  # noqa: E402
+
+
+def outcome_series(trades: pd.DataFrame) -> tuple[pd.Series, str]:
+    if "risk_amount" in trades.columns and trades["risk_amount"].notna().all():
+        return (trades["pnl"] / trades["risk_amount"]).rename("outcome"), "R-multiple"
+    if "notional" not in trades.columns:
+        raise ValueError("need risk_amount or notional to define the outcome unit")
+    return (trades["pnl"] / trades["notional"]).rename("outcome"), "return on notional"
+
+
+def _fmt(v: float, pct: bool = False) -> str:
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "n/a"
+    if isinstance(v, float) and np.isinf(v):
+        return "inf"
+    return f"{v:.2%}" if pct else f"{v:.4g}"
+
+
+def build_report(trades: pd.DataFrame, out_dir: str | Path, title: str) -> dict:
+    out = Path(out_dir)
+    (out / "figures").mkdir(parents=True, exist_ok=True)
+    x_series, unit = outcome_series(trades)
+    x = x_series.to_numpy()
+    pct = unit == "return on notional"
+
+    desc = summarise(x)
+    usd = summarise(trades["pnl"].to_numpy())
+    boot_iid = bootstrap_mean(x, method="iid")
+    boot_blk = bootstrap_mean(x, method="stationary")
+    sh = sharpe_summary(x)
+    post = win_rate_posterior(desc.n_wins, desc.n_trades)
+    be = breakeven_win_rate(desc.payoff_ratio)
+    bb = bayesian_bootstrap_mean(x)
+    df = trades.assign(outcome=x)
+    slices = slice_tests(df, "outcome", ["instrument", "direction"])
+    grp = df.groupby(["instrument", "direction"])["outcome"]
+    pooled = partial_pool_win_rates(
+        [" / ".join(k) for k in grp.groups], grp.apply(lambda s: (s > 0).sum()), grp.size()
+    )
+    kelly = kelly_with_uncertainty(x)
+    fractions = sorted({round(f, 2) for f in [1, 2, 3, kelly.point / 4, kelly.point / 2]})
+    fractions = [f for f in fractions if f > 0]
+    dd = drawdown_risk(x, fractions, n_paths=10_000).table
+    hist_dd = float(max_drawdown(np.cumprod(1 + x)[None, :])[0])
+
+    # ------------------------------------------------------------- figures
+    fig, ax = plt.subplots(figsize=(8, 3.5))
+    ax.plot(trades["exit_time"], trades["pnl"].cumsum(), lw=1.2)
+    ax.set(title="Cumulative net P&L (USD)", xlabel="exit time", ylabel="USD")
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "equity_usd.png", dpi=130)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 3.5))
+    ax.hist(x, bins=60)
+    ax.axvline(0, color="k", lw=0.8)
+    ax.set(title=f"Distribution of trade outcomes ({unit})", xlabel=unit, ylabel="trades")
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "outcome_hist.png", dpi=130)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 3.5))
+    ax.hist(boot_iid.samples, bins=60, alpha=0.6, label="iid bootstrap")
+    ax.hist(boot_blk.samples, bins=60, alpha=0.6, label="stationary bootstrap")
+    ax.hist(bb, bins=60, alpha=0.4, label="Bayesian bootstrap")
+    ax.axvline(0, color="k", lw=0.8)
+    ax.set(title="Uncertainty in mean outcome", xlabel=f"mean {unit}", ylabel="draws")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "mean_uncertainty.png", dpi=130)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 3.5))
+    f_grid = np.linspace(0, max(kelly.quantile(0.95), kelly.point) * 1.1, 200)
+    ax.plot(f_grid, [growth_rate(x, f) for f in f_grid])
+    ax.axvline(kelly.point, color="C1", ls="--", label=f"full Kelly {kelly.point:.2f}")
+    ax.axvspan(kelly.quantile(0.05), kelly.quantile(0.95), color="C1", alpha=0.15, label="90% band")
+    ax.axvline(kelly.point / 2, color="C2", ls=":", label="half Kelly")
+    ax.set(title="Expected log growth per trade vs size", xlabel="size scale f", ylabel="g(f)")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "kelly_growth.png", dpi=130)
+    plt.close(fig)
+
+    # ------------------------------------------------------------- markdown
+    f_ = lambda v: _fmt(v, pct)  # noqa: E731
+    lines = [
+        f"# {title}",
+        "",
+        "Generated by `scripts/run_report.py`. All numbers are reproducible from the",
+        "committed testing journal and fixed random seeds.",
+        "",
+        f"- Trades: **{desc.n_trades}**",
+        f"- Period: {trades['entry_time'].min():%Y-%m-%d} to {trades['exit_time'].max():%Y-%m-%d}",
+        f"- Instruments: {', '.join(sorted(trades['instrument'].unique()))}",
+        f"- Outcome unit: **{unit}**",
+        "",
+        "## 1. Descriptive statistics",
+        "",
+        "| Statistic | Outcome unit | USD |",
+        "|---|---|---|",
+        f"| Win rate | {desc.win_rate:.2%} | {usd.win_rate:.2%} |",
+        f"| Average win | {f_(desc.avg_win)} | {usd.avg_win:,.0f} |",
+        f"| Average loss | {f_(desc.avg_loss)} | {usd.avg_loss:,.0f} |",
+        f"| Payoff ratio | {desc.payoff_ratio:.3f} | {usd.payoff_ratio:.3f} |",
+        f"| Profit factor | {desc.profit_factor:.3f} | {usd.profit_factor:.3f} |",
+        f"| Expectancy (mean) | {f_(desc.expectancy)} | {usd.expectancy:,.0f} |",
+        f"| Std dev | {f_(desc.std)} | {usd.std:,.0f} |",
+        f"| Total | {f_(desc.total)} | {usd.total:,.0f} |",
+        "",
+        "![equity](figures/equity_usd.png)",
+        "![outcomes](figures/outcome_hist.png)",
+        "",
+        "## 2. Is the edge distinguishable from zero?",
+        "",
+        "| Method | Mean | 95% interval | one-sided p (mean <= 0) |",
+        "|---|---|---|---|",
+        f"| iid bootstrap | {f_(boot_iid.mean)} | [{f_(boot_iid.ci_low)}, {f_(boot_iid.ci_high)}]"
+        f" | {boot_iid.p_value:.4f} |",
+        f"| stationary bootstrap (L = {boot_blk.block_length:.1f}) | {f_(boot_blk.mean)} | "
+        f"[{f_(boot_blk.ci_low)}, {f_(boot_blk.ci_high)}] | {boot_blk.p_value:.4f} |",
+        f"| Bayesian bootstrap | {f_(float(bb.mean()))} | "
+        f"[{f_(float(np.quantile(bb, 0.025)))}, {f_(float(np.quantile(bb, 0.975)))}] | "
+        f"P(mean <= 0) = {float(np.mean(bb <= 0)):.4f} |",
+        "",
+        "![uncertainty](figures/mean_uncertainty.png)",
+        "",
+        "### Sharpe-ratio statistics (per trade)",
+        "",
+        "| Sharpe | SE (iid, Lo 2002) | Skew | Kurtosis | PSR (SR* = 0) | MinTRL (95%) |",
+        "|---|---|---|---|---|---|",
+        f"| {sh.sharpe:.3f} | {sh.se_iid:.3f} | {sh.skew:.2f} | {sh.kurtosis:.2f} | "
+        f"{sh.psr:.4f} | {sh.min_trl:.1f} trades |",
+        "",
+        "## 3. Bayesian win rate",
+        "",
+        f"- Posterior Beta({post.alpha:.0f}, {post.beta:.0f}); mean {post.mean:.2%}, "
+        f"95% interval [{post.interval()[0]:.2%}, {post.interval()[1]:.2%}]",
+        f"- Breakeven win rate for payoff ratio {desc.payoff_ratio:.3f}: {be:.2%}",
+        f"- P(true win rate > breakeven) = {post.prob_above(be):.4f}",
+        "",
+        "Partial pooling of win rates across instrument / direction:",
+        "",
+        "| Slice | Trades | Raw win rate | Pooled win rate |",
+        "|---|---|---|---|",
+        *[
+            f"| {g} | {int(n)} | {r:.2%} | {p:.2%} |"
+            for g, n, r, p in zip(pooled.groups, pooled.n, pooled.raw, pooled.pooled, strict=True)
+        ],
+        "",
+        "## 4. Which slices survive multiple-testing correction?",
+        "",
+        f"{int(slices['p'].notna().sum())} slices tested (one-sided t-test, H1: mean > 0).",
+        "",
+        "| Slice | n | Mean | p | p (Holm) | p (BH) | Significant after Holm |",
+        "|---|---|---|---|---|---|---|",
+        *[
+            f"| {r.slice} | {r.n} | {f_(r.mean)} | {_fmt(r.p)} | {_fmt(r.p_holm)} | "
+            f"{_fmt(r.p_bh)} | {'yes' if r.significant_holm else 'no'} |"
+            for r in slices.itertuples()
+        ],
+        "",
+        "## 5. Position sizing (Kelly with parameter uncertainty)",
+        "",
+        f"Size scale f = {'leverage (notional / equity)' if pct else 'fraction of equity risked'}.",
+        "",
+        f"- Full Kelly (point estimate): **{kelly.point:.2f}**",
+        f"- Posterior 5% / 50% / 95%: {kelly.quantile(0.05):.2f} / {kelly.quantile(0.5):.2f} / "
+        f"{kelly.quantile(0.95):.2f}",
+        f"- Posterior P(optimal size = 0): {kelly.prob_zero:.4f}",
+        f"- Upper bound from worst trade ({f_(float(x.min()))}): f < {1 / -x.min():.2f}",
+        "",
+        "![kelly](figures/kelly_growth.png)",
+        "",
+        "## 6. Monte Carlo drawdowns and risk of ruin",
+        "",
+        f"10,000 iid resamples of the {desc.n_trades}-trade sequence. Ruin = equity at or below",
+        f"50% of the starting value at any point. Historical max drawdown at f = 1: {hist_dd:.2%}.",
+        "",
+        "| f | Median final equity | Median max DD | 95th pct max DD | P(DD >= 20%) | "
+        "P(DD >= 30%) | P(DD >= 50%) | P(ruin) |",
+        "|---|---|---|---|---|---|---|---|",
+        *[
+            f"| {r.fraction:.2f} | {r.median_final_equity:.3g} | {r.median_max_dd:.1%} | "
+            f"{r.p95_max_dd:.1%} | {r.p_dd_ge_20:.1%} | {r.p_dd_ge_30:.1%} | {r.p_dd_ge_50:.1%}"
+            f" | {r.p_ruin:.1%} |"
+            for r in dd.itertuples()
+        ],
+        "",
+    ]
+    (out / "REPORT.md").write_text("\n".join(lines))
+
+    return {
+        "unit": unit,
+        "descriptive": asdict(desc),
+        "bootstrap_iid": {k: v for k, v in asdict(boot_iid).items() if k != "samples"},
+        "bootstrap_stationary": {k: v for k, v in asdict(boot_blk).items() if k != "samples"},
+        "sharpe": asdict(sh),
+        "win_rate_posterior": {
+            "alpha": post.alpha,
+            "beta": post.beta,
+            "p_above_be": post.prob_above(be),
+        },
+        "kelly": {"point": kelly.point, "q05": kelly.quantile(0.05), "q50": kelly.quantile(0.5)},
+    }

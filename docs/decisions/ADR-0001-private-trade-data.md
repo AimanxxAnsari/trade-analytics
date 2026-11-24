@@ -8,10 +8,10 @@ The project analyses a personal trading record. The repository is intended to be
 a portfolio piece. The raw record contains personal financial information.
 
 ## Options considered
-1. **Commit the raw data** — fully reproducible by anyone; exposes personal financial data. ❌
+1. **Commit the raw data** — fully reproducible by anyone; exposes personal financial data.  (rejected)
 2. **Commit an anonymised version** (shifted dates, scaled P&L) — partially reproducible; risk of
-   re-identification and of results that don't match the real analysis. ❌
-3. **Keep raw data local; commit code, synthetic-data tests and aggregated results only.** ✅
+   re-identification and of results that don't match the real analysis.  (rejected)
+3. **Keep raw data local; commit code, synthetic-data tests and aggregated results only.**  (chosen)
 
 ## Decision
 Option 3. `data/*` and all spreadsheet/CSV/parquet files are git-ignored; tests use synthetic

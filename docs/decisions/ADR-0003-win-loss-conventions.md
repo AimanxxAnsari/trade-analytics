@@ -11,7 +11,7 @@ use different conventions, which silently changes win rate and expectancy.
 1. Count scratches as losses — overstates losing frequency.
 2. Drop scratches entirely — inflates win rate and hides that capital was at risk.
 3. **Keep scratches as a separate category:** in the denominator of win rate and in expectancy,
-   excluded from average win / average loss. ✅
+   excluded from average win / average loss.  (chosen)
 
 ## Decision
 Option 3. Win = outcome > 0, loss = outcome < 0, scratch = outcome == 0.

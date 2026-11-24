@@ -1,55 +1,78 @@
 # trade-analytics
 
-**Is there real skill in a discretionary trading record — and how much should be risked per trade?**
+**Is there real skill in a discretionary trading record, and how much should be risked per trade?**
 
-An independent quant research project analysing a personal record of ~300 discretionary trades
-(equity index, crude oil, gold and FX) with the tools a prop firm or fund would use to assess a
-trader: expectancy in R-multiples, bootstrap and Bayesian inference on the edge, multiple-testing
-control, Monte Carlo drawdown and risk-of-ruin analysis, and Kelly-based position sizing under
-parameter uncertainty.
+An independent quant research project that assesses a trading record the way a prop firm or fund
+would assess a trader: expectancy, bootstrap and Bayesian inference on the edge, multiple-testing
+control across slices, Probabilistic Sharpe Ratio, Monte Carlo drawdown and risk-of-ruin analysis,
+and Kelly sizing under parameter uncertainty.
 
-> **Status:** 🚧 in progress — data schema, validation and descriptive metrics done; inference
-> modules next. See [`docs/devlog/`](docs/devlog/).
+**Status:** in progress. The full pipeline runs end to end on a public **testing journal**
+(422 BTC/ETH perpetual-futures trades reconstructed from public Hyperliquid fills). The same
+pipeline will be run on a private personal journal.
 
-## Research questions
+## Headline results (testing journal)
 
-1. Is the expectancy of the trade sequence distinguishable from zero, after accounting for sample
-   size, fat tails and serial dependence?
-2. What is the posterior probability that the edge is positive, and how many trades are needed
-   before it is credible?
-3. Which breakdowns (instrument, direction, setup) survive multiple-testing correction?
-4. What drawdowns and risk of ruin does the record imply at different risk-per-trade levels?
-5. What fraction of Kelly is justified once parameter uncertainty is included?
+| | |
+|---|---|
+| Trades / period | 422 / Mar 2024 - May 2025 |
+| Win rate | 93.6% (payoff ratio 0.67 per unit notional; 0.15 in USD) |
+| Mean return on notional | 0.83% per trade, 95% CI [0.66%, 1.02%] (stationary bootstrap) |
+| Probabilistic Sharpe Ratio | > 0.999 (skew -1.9, kurtosis 35.8) |
+| Loss concentration | 5 largest losses = 97.6% of all USD losses |
+| Full Kelly leverage | 6.7x, against a 7.1x wipe-out bound set by the single worst trade |
 
-## Methods (planned → done)
+The edge is statistically clear, but the record is a classic negatively skewed profile:
+many small wins and a few large losses, concentrated in the largest positions. Full Kelly is
+unusable here: it sits just below the leverage at which a repeat of the worst trade would wipe out
+the account. Full report: [`reports/testing_journal/REPORT.md`](reports/testing_journal/REPORT.md).
+Write-up: [`docs/projects/pillar-1/PROJECT.md`](docs/projects/pillar-1/PROJECT.md).
+
+## Methods
 
 | Module | Method | Status |
 |---|---|---|
-| `schema` | Canonical trade table + validation | ✅ |
-| `metrics` | Win rate, payoff ratio, profit factor, expectancy (R-multiples) | ✅ |
-| `bootstrap` | iid and stationary block bootstrap CIs (Efron 1979; Politis & Romano 1994) | ⏳ |
-| `sharpe` | Sharpe SE (Lo 2002), Probabilistic Sharpe Ratio & MinTRL (Bailey & López de Prado 2012) | ⏳ |
-| `bayes` | Beta-Binomial win rate; hierarchical pooling across instruments | ⏳ |
-| `multiple_testing` | Holm (1979), Benjamini–Hochberg (1995) | ⏳ |
-| `monte_carlo` | Trade-sequence resampling: drawdown distribution, risk of ruin | ⏳ |
-| `sizing` | Kelly / fractional Kelly with posterior parameter uncertainty | ⏳ |
+| `loaders.hyperliquid` | Fill-to-round-trip reconstruction (scale-in/out, flips, gap detection) | Done |
+| `schema` | Canonical trade table and validation | Done |
+| `metrics` | Win rate, payoff ratio, profit factor, expectancy | Done |
+| `bootstrap` | iid and stationary block bootstrap (Efron 1979; Politis & Romano 1994) | Done |
+| `sharpe` | Sharpe SE (Lo 2002), PSR and MinTRL (Bailey & López de Prado 2012) | Done |
+| `bayes` | Beta-Binomial win rate, Bayesian bootstrap (Rubin 1981), partial pooling | Done |
+| `multiple_testing` | Holm (1979), Benjamini-Hochberg (1995), slice tests | Done |
+| `monte_carlo` | Trade-sequence resampling: drawdown distribution, risk of ruin | Done |
+| `sizing` | Kelly with Bayesian-bootstrap parameter uncertainty | Done |
+| `synthetic` | Generators with known answers for tests | Done |
+| `report` | End-to-end report with figures | Done |
 
-## Privacy
+Every statistical method is tested against a known answer first (hand calculations, closed forms,
+or synthetic data with a known true value). 39 tests.
 
-The raw trade record is **never committed** — only code, tests on synthetic data, and aggregated
-results/charts. See [ADR-0001](docs/decisions/ADR-0001-private-trade-data.md).
+## Data
+
+- **Testing journal** (`data/testing_journal/`): derived from the public Kaggle dataset
+  "Historical Trade Data" (Hyperliquid fills, CC0 1.0). See its
+  [README](data/testing_journal/README.md) and [ADR-0004](docs/decisions/ADR-0004-testing-journal.md).
+- **Personal journal**: never committed ([ADR-0001](docs/decisions/ADR-0001-private-trade-data.md)).
 
 ## Run
 
 ```bash
 uv sync --all-groups
 uv run pytest
+uv run python scripts/run_report.py      # writes reports/testing_journal/
+```
+
+To rebuild the testing journal from the raw Kaggle file:
+
+```bash
+uv run python scripts/build_testing_journal.py path/to/historical_data.csv
 ```
 
 ## Documentation
 
 - [Project write-up](docs/projects/pillar-1/PROJECT.md)
-- [Design: trade schema](docs/design/trade-schema.md)
+- [Design docs](docs/design/)
 - [Decision records](docs/decisions/)
 - [Development log](docs/devlog/)
+- [Learning notes](docs/learning/)
 - [References](references.bib)
