@@ -30,19 +30,19 @@ Write-up: [`docs/projects/pillar-1/PROJECT.md`](docs/projects/pillar-1/PROJECT.m
 
 ## Methods
 
-| Module | Method | Status |
-|---|---|---|
-| `loaders.hyperliquid` | Fill-to-round-trip reconstruction (scale-in/out, flips, gap detection) | Done |
-| `schema` | Canonical trade table and validation | Done |
-| `metrics` | Win rate, payoff ratio, profit factor, expectancy | Done |
-| `bootstrap` | iid and stationary block bootstrap (Efron 1979; Politis & Romano 1994) | Done |
-| `sharpe` | Sharpe SE (Lo 2002), PSR and MinTRL (Bailey & López de Prado 2012) | Done |
-| `bayes` | Beta-Binomial win rate, Bayesian bootstrap (Rubin 1981), partial pooling | Done |
-| `multiple_testing` | Holm (1979), Benjamini-Hochberg (1995), slice tests | Done |
-| `monte_carlo` | Trade-sequence resampling: drawdown distribution, risk of ruin | Done |
-| `sizing` | Kelly with Bayesian-bootstrap parameter uncertainty | Done |
-| `synthetic` | Generators with known answers for tests | Done |
-| `report` | End-to-end report with figures | Done |
+| Module | Method |
+|---|---|
+| `loaders.hyperliquid` | Fill-to-round-trip reconstruction (scale-in/out, flips, gap detection) |
+| `schema` | Canonical trade table and validation |
+| `metrics` | Win rate, payoff ratio, profit factor, expectancy |
+| `bootstrap` | iid and stationary block bootstrap (Efron 1979; Politis & Romano 1994) |
+| `sharpe` | Sharpe SE (Lo 2002), PSR and MinTRL (Bailey & López de Prado 2012) |
+| `bayes` | Beta-Binomial win rate, Bayesian bootstrap (Rubin 1981), partial pooling |
+| `multiple_testing` | Holm (1979), Benjamini-Hochberg (1995), slice tests |
+| `monte_carlo` | Trade-sequence resampling: drawdown distribution, risk of ruin |
+| `sizing` | Kelly with Bayesian-bootstrap parameter uncertainty |
+| `synthetic` | Generators with known answers for tests |
+| `report` | End-to-end report with figures |
 
 Every statistical method is tested against a known answer first (hand calculations, closed forms,
 or synthetic data with a known true value). 39 tests.
