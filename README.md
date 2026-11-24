@@ -32,6 +32,7 @@ Write-up: [`docs/projects/pillar-1/PROJECT.md`](docs/projects/pillar-1/PROJECT.m
 
 | Module | Method |
 |---|---|
+| `ingest`, `cli` | Check and convert journals in any format to the canonical schema; `trade-journal` command |
 | `loaders.hyperliquid` | Fill-to-round-trip reconstruction (scale-in/out, flips, gap detection) |
 | `schema` | Canonical trade table and validation |
 | `metrics` | Win rate, payoff ratio, profit factor, expectancy |
@@ -45,7 +46,7 @@ Write-up: [`docs/projects/pillar-1/PROJECT.md`](docs/projects/pillar-1/PROJECT.m
 | `report` | End-to-end report with figures |
 
 Every statistical method is tested against a known answer first (hand calculations, closed forms,
-or synthetic data with a known true value). 39 tests.
+or synthetic data with a known true value). 51 tests.
 
 ## Data
 
@@ -54,12 +55,39 @@ or synthetic data with a known true value). 39 tests.
   [README](data/testing_journal/README.md) and [ADR-0004](docs/decisions/ADR-0004-testing-journal.md).
 - **Personal journal**: never committed ([ADR-0001](docs/decisions/ADR-0001-private-trade-data.md)).
 
+## Use your own journal
+
+Any CSV journal can be checked, converted to the canonical schema and analysed:
+
+```bash
+uv run trade-journal check   my_journal.csv                    # is it already canonical?
+uv run trade-journal convert my_journal.csv -o data/clean/journal.csv --dayfirst
+uv run trade-journal analyse my_journal.csv -o reports/private/my_journal
+```
+
+Column names are matched automatically (e.g. `Symbol`, `Side`, `Open Time`, `P&L`, `Commission`).
+Numbers like `$1,250.00` and `(320.50)`, day-first dates, signed sizes, gross P&L with costs,
+R-multiple columns and stop prices are handled. Every mapping and derivation is written to a
+conversion report, and invalid rows are listed by file line. For unusual files, generate a
+mapping template, edit it, and pass it back:
+
+```bash
+uv run trade-journal convert my_journal.csv --write-mapping mapping.json
+uv run trade-journal convert my_journal.csv --mapping mapping.json -o data/clean/journal.csv
+```
+
+Presets: `--preset mt4` (MetaTrader 4/5 history export). Examples:
+[`examples/alien_journals/`](examples/alien_journals/). Design:
+[`docs/design/journal-ingest.md`](docs/design/journal-ingest.md).
+Outputs written under `data/`, `out/` and `reports/private/` are git-ignored.
+
 ## Run
 
 ```bash
 uv sync --all-groups
 uv run pytest
 uv run python scripts/run_report.py      # writes reports/testing_journal/
+uv run trade-journal --help
 ```
 
 To rebuild the testing journal from the raw Kaggle file:

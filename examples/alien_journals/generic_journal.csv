@@ -1,0 +1,7 @@
+Date,Symbol,Side,Qty,Entry,Exit,P&L,R,Setup,Notes
+04/03/2024,ES,Long,2,5100.25,5112.75,"$1,250.00",1.25,Breakout,
+05/03/2024,ES,Short,1,5130.00,5136.41,(320.50),-0.64,Fade,stopped early
+06/03/2024,GC,Long,1,2140.10,2151.30,"$1,120.00",1.12,Pullback,
+07/03/2024,ES,Long,1,5145.00,5139.00,(300.00),-0.60,Breakout,
+08/03/2024,CL,Flat,1,78.10,78.40,300.00,0.6,Range,side typo
+11/03/2024,GC,Short,2,2165.00,2158.40,"$1,320.00",1.32,Fade,

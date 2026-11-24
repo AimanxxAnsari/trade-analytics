@@ -45,6 +45,14 @@ skill, but cap the size."
 10. **Why return on notional, not R?** No planned stops in the data; it's scale-free. USD is shown
     alongside to expose sizing effects.
 
+11. **How do you handle journals in different formats?** A converter matches normalised
+    column names against an alias table, lets explicit mappings override it, parses messy numbers
+    and dates, derives missing fields (direction from signed size, P&L from prices, risk from stop
+    or R column), and validates every row. It fails by default and writes a report of every
+    decision, so nothing is silently guessed.
+12. **Why report problems by file line?** So the person who owns the file can fix it directly;
+    index numbers mean nothing to them.
+
 ## Must be able to rebuild from scratch
 - [ ] Expectancy identity E = pW - qL (with scratches).
 - [ ] iid bootstrap CI and null-imposed p-value (about 10 lines of NumPy).

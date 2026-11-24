@@ -35,3 +35,9 @@ wheels/
 .DS_Store
 .idea/
 .vscode/
+
+# --- Exception: synthetic example journals (not real trades) ---
+!examples/alien_journals/*.csv
+
+# local conversion outputs
+out/

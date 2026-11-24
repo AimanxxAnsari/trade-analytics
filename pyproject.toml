@@ -11,6 +11,9 @@ dependencies = [
     "scipy>=1.13",
 ]
 
+[project.scripts]
+trade-journal = "trade_analytics.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
