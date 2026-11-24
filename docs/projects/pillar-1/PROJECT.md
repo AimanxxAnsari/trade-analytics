@@ -63,7 +63,7 @@ Choices and rejected alternatives: [ADR-0006](../../decisions/ADR-0006-inference
 Every method has a known-answer test (39 tests in total).
 
 ## 5. Results
-Full tables and figures: [`reports/testing_journal/REPORT.md`](../../../reports/testing_journal/REPORT.md).
+Full tables and figures: [README, Full results](../../../README.md#full-results-testing-journal).
 
 **5.1 The edge is statistically clear.** Mean return on notional 0.83% per trade. The iid bootstrap
 CI is [0.68%, 0.98%]; the stationary bootstrap, which allows for streaks, widens it slightly to
