@@ -40,6 +40,8 @@ def report_for_readme(report_md: str, figures_dir: str) -> str:
         if re.match(r"^#{2,5} ", line):
             line = "#" + line
         line = line.replace("](figures/", f"]({figures_dir}/")
+        line = line.replace('srcset="figures/', f'srcset="{figures_dir}/')
+        line = line.replace('src="figures/', f'src="{figures_dir}/')
         out.append(line)
     return "\n".join(out).strip()
 

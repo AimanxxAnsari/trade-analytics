@@ -15,6 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from matplotlib.ticker import FuncFormatter, PercentFormatter  # noqa: E402
 
 from trade_analytics.bayes import (  # noqa: E402
     bayesian_bootstrap_mean,
@@ -26,6 +27,15 @@ from trade_analytics.bootstrap import bootstrap_mean  # noqa: E402
 from trade_analytics.metrics import summarise  # noqa: E402
 from trade_analytics.monte_carlo import drawdown_risk, max_drawdown  # noqa: E402
 from trade_analytics.multiple_testing import slice_tests  # noqa: E402
+from trade_analytics.plotting import (  # noqa: E402
+    Theme,
+    end_label,
+    legend_top,
+    picture_md,
+    ref_line,
+    save_light_dark,
+)
+from trade_analytics.plotting import title as chart_title  # noqa: E402
 from trade_analytics.sharpe import sharpe_summary  # noqa: E402
 from trade_analytics.sizing import growth_rate, kelly_with_uncertainty  # noqa: E402
 
@@ -74,43 +84,95 @@ def build_report(trades: pd.DataFrame, out_dir: str | Path, title: str) -> dict:
     hist_dd = float(max_drawdown(np.cumprod(1 + x)[None, :])[0])
 
     # ------------------------------------------------------------- figures
-    fig, ax = plt.subplots(figsize=(8, 3.5))
-    ax.plot(trades["exit_time"], trades["pnl"].cumsum(), lw=1.2)
-    ax.set(title="Cumulative net P&L (USD)", xlabel="exit time", ylabel="USD")
-    fig.tight_layout()
-    fig.savefig(out / "figures" / "equity_usd.png", dpi=130)
-    plt.close(fig)
+    figs = out / "figures"
+    unit_fmt = PercentFormatter(1.0, decimals=1) if pct else None
+    equity = trades.set_index("exit_time")["pnl"].cumsum()
 
-    fig, ax = plt.subplots(figsize=(8, 3.5))
-    ax.hist(x, bins=60)
-    ax.axvline(0, color="k", lw=0.8)
-    ax.set(title=f"Distribution of trade outcomes ({unit})", xlabel=unit, ylabel="trades")
-    fig.tight_layout()
-    fig.savefig(out / "figures" / "outcome_hist.png", dpi=130)
-    plt.close(fig)
+    def draw_equity(t: Theme):
+        fig, ax = plt.subplots(figsize=(9, 3.6))
+        ax.plot(equity.index, equity.values, color=t.series[0])
+        ax.fill_between(equity.index, equity.values, 0, color=t.series[0], alpha=0.10, lw=0)
+        ax.axhline(0, color=t.baseline, lw=1)
+        ax.yaxis.set_major_formatter(
+            FuncFormatter(lambda v, _: f"{'\u2212' if v < 0 else ''}${abs(v) / 1000:,.0f}k")
+        )
+        end_label(ax, equity.index[-1], equity.iloc[-1], f"${equity.iloc[-1] / 1000:,.0f}k", t)
+        chart_title(ax, "Cumulative net P&L", f"USD, {len(trades)} trades, after fees", t)
+        return fig
 
-    fig, ax = plt.subplots(figsize=(8, 3.5))
-    ax.hist(boot_iid.samples, bins=60, alpha=0.6, label="iid bootstrap")
-    ax.hist(boot_blk.samples, bins=60, alpha=0.6, label="stationary bootstrap")
-    ax.hist(bb, bins=60, alpha=0.4, label="Bayesian bootstrap")
-    ax.axvline(0, color="k", lw=0.8)
-    ax.set(title="Uncertainty in mean outcome", xlabel=f"mean {unit}", ylabel="draws")
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(out / "figures" / "mean_uncertainty.png", dpi=130)
-    plt.close(fig)
+    def draw_outcomes(t: Theme):
+        fig, ax = plt.subplots(figsize=(9, 3.6))
+        ax.hist(x, bins=70, color=t.series[0], edgecolor=t.surface, linewidth=0.6)
+        ref_line(ax, x=0, label="zero", t=t)
+        if unit_fmt:
+            ax.xaxis.set_major_formatter(unit_fmt)
+        ax.set(xlabel=unit, ylabel="trades")
+        chart_title(
+            ax,
+            "Distribution of trade outcomes",
+            f"{unit}; win rate {desc.win_rate:.1%}, mean {_fmt(desc.expectancy, pct)}",
+            t,
+        )
+        return fig
 
-    fig, ax = plt.subplots(figsize=(8, 3.5))
-    f_grid = np.linspace(0, max(kelly.quantile(0.95), kelly.point) * 1.1, 200)
-    ax.plot(f_grid, [growth_rate(x, f) for f in f_grid])
-    ax.axvline(kelly.point, color="C1", ls="--", label=f"full Kelly {kelly.point:.2f}")
-    ax.axvspan(kelly.quantile(0.05), kelly.quantile(0.95), color="C1", alpha=0.15, label="90% band")
-    ax.axvline(kelly.point / 2, color="C2", ls=":", label="half Kelly")
-    ax.set(title="Expected log growth per trade vs size", xlabel="size scale f", ylabel="g(f)")
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(out / "figures" / "kelly_growth.png", dpi=130)
-    plt.close(fig)
+    def draw_uncertainty(t: Theme):
+        fig, ax = plt.subplots(figsize=(9, 3.6))
+        draws = [
+            ("iid bootstrap", boot_iid.samples),
+            ("stationary bootstrap", boot_blk.samples),
+            ("Bayesian bootstrap", bb),
+        ]
+        lowest = min(d.min() for _, d in draws)
+        share_le0 = float(np.mean(np.concatenate([d for _, d in draws]) <= 0))
+        bins = np.linspace(lowest, max(d.max() for _, d in draws), 70)
+        for i, (label, d) in enumerate(draws):
+            ax.hist(d, bins=bins, histtype="step", lw=2, color=t.series[i], label=label)
+        if unit_fmt:
+            ax.xaxis.set_major_formatter(unit_fmt)
+        ax.set(xlabel=f"mean {unit}", ylabel="draws")
+        legend_top(ax, 1, t)
+        chart_title(
+            ax,
+            "Uncertainty in the mean outcome",
+            (
+                f"10,000 draws per method; lowest draw {lowest:.2%}, so no draw reaches zero"
+                if lowest > 0
+                else f"10,000 draws per method; {share_le0:.1%} of draws at or below zero"
+            ),
+            t,
+        )
+        return fig
+
+    bound = 1 / -x.min() if x.min() < 0 else max(kelly.point * 2, 1.0)
+    f_grid = np.linspace(0, bound * 0.999, 300)
+    g = np.array([growth_rate(x, f) for f in f_grid])
+
+    def draw_kelly(t: Theme):
+        fig, ax = plt.subplots(figsize=(9, 3.6))
+        ax.axvspan(kelly.quantile(0.05), kelly.quantile(0.95), color=t.series[1], alpha=0.10, lw=0)
+        ax.plot(f_grid, g, color=t.series[0])
+        ref_line(ax, x=kelly.point, label=f"full Kelly {kelly.point:.2f}", t=t, color=t.series[1])
+        ref_line(
+            ax, x=kelly.point / 2, label=f"half Kelly {kelly.point / 2:.2f}", t=t, color=t.series[2]
+        )
+        ax.set(
+            xlabel="size scale f (leverage)" if pct else "size scale f (fraction risked)",
+            ylabel="expected log growth per trade",
+        )
+        ax.set_xlim(0, bound * 1.02)
+        chart_title(
+            ax,
+            "Growth vs position size",
+            f"Shaded: 90% posterior band for the optimum; curve ends at the wipe-out bound "
+            f"{bound:.2f}",
+            t,
+        )
+        return fig
+
+    save_light_dark(draw_equity, figs / "equity_usd.png")
+    save_light_dark(draw_outcomes, figs / "outcome_hist.png")
+    save_light_dark(draw_uncertainty, figs / "mean_uncertainty.png")
+    save_light_dark(draw_kelly, figs / "kelly_growth.png")
 
     # ------------------------------------------------------------- markdown
     f_ = lambda v: _fmt(v, pct)  # noqa: E731
@@ -147,8 +209,8 @@ def build_report(trades: pd.DataFrame, out_dir: str | Path, title: str) -> dict:
         f"| Std dev | {f_(desc.std)} | {usd.std:,.0f} |",
         f"| Total | {f_(desc.total)} | {usd.total:,.0f} |",
         "",
-        "![equity](figures/equity_usd.png)",
-        "![outcomes](figures/outcome_hist.png)",
+        picture_md("figures/equity_usd.png", "equity"),
+        picture_md("figures/outcome_hist.png", "outcomes"),
         "",
         "## 2. Is the edge distinguishable from zero?",
         "",
@@ -162,7 +224,7 @@ def build_report(trades: pd.DataFrame, out_dir: str | Path, title: str) -> dict:
         f"[{f_(float(np.quantile(bb, 0.025)))}, {f_(float(np.quantile(bb, 0.975)))}] | "
         f"P(mean <= 0) = {float(np.mean(bb <= 0)):.4f} |",
         "",
-        "![uncertainty](figures/mean_uncertainty.png)",
+        picture_md("figures/mean_uncertainty.png", "uncertainty"),
         "",
         "### Sharpe-ratio statistics (per trade)",
         "",
@@ -209,7 +271,7 @@ def build_report(trades: pd.DataFrame, out_dir: str | Path, title: str) -> dict:
         f"- Posterior P(optimal size = 0): {kelly.prob_zero:.4f}",
         f"- Upper bound from worst trade ({f_(float(x.min()))}): f < {1 / -x.min():.2f}",
         "",
-        "![kelly](figures/kelly_growth.png)",
+        picture_md("figures/kelly_growth.png", "kelly"),
         "",
         "## 6. Monte Carlo drawdowns and risk of ruin",
         "",

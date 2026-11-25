@@ -54,8 +54,8 @@ journal and fixed random seeds.
 | Std dev | 1.57% | 6,781 |
 | Total | 352.16% | 267,926 |
 
-![equity](reports/testing_journal/figures/equity_usd.png)
-![outcomes](reports/testing_journal/figures/outcome_hist.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="reports/testing_journal/figures/equity_usd-dark.png"><img src="reports/testing_journal/figures/equity_usd.png" alt="equity" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="reports/testing_journal/figures/outcome_hist-dark.png"><img src="reports/testing_journal/figures/outcome_hist.png" alt="outcomes" width="100%"></picture>
 
 ### 2. Is the edge distinguishable from zero?
 
@@ -65,7 +65,7 @@ journal and fixed random seeds.
 | stationary bootstrap (L = 7.5) | 0.83% | [0.66%, 1.02%] | 0.0001 |
 | Bayesian bootstrap | 0.83% | [0.67%, 0.98%] | P(mean <= 0) = 0.0000 |
 
-![uncertainty](reports/testing_journal/figures/mean_uncertainty.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="reports/testing_journal/figures/mean_uncertainty-dark.png"><img src="reports/testing_journal/figures/mean_uncertainty.png" alt="uncertainty" width="100%"></picture>
 
 #### Sharpe-ratio statistics (per trade)
 
@@ -108,7 +108,7 @@ Size scale f = leverage (notional / equity).
 - Posterior P(optimal size = 0): 0.0000
 - Upper bound from worst trade (-14.12%): f < 7.08
 
-![kelly](reports/testing_journal/figures/kelly_growth.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="reports/testing_journal/figures/kelly_growth-dark.png"><img src="reports/testing_journal/figures/kelly_growth.png" alt="kelly" width="100%"></picture>
 
 ### 6. Monte Carlo drawdowns and risk of ruin
 
