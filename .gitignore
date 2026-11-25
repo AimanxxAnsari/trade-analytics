@@ -41,3 +41,6 @@ wheels/
 
 # local conversion outputs
 out/
+
+# Private notes folder, never committed
+/local-brain/
